@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>RGB LED Controller</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <link rel="stylesheet" href="bootstrap.min.css">
+  <script src="jquery.min.js"></script>
+  <script src="popper.min.js"></script>
+  <script src="bootstrap.min.js"></script>
+  <script src="iro.min.js"></script>
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+  <link rel="manifest" href="site.webmanifest">
+  <link rel="mask-icon" href="safari-pinned-tab.svg" color="#5bbad5">
+  <meta name="apple-mobile-web-app-title" content="REB LED Controller">
+  <meta name="application-name" content="REB LED Controller">
+  <meta name="msapplication-TileColor" content="#da532c">
+  <meta name="theme-color" content="#ffffff">
+</head>
+
+<body>
+
+<nav class="navbar navbar-expand-sm bg-light sticky-top">
+  <a class="navbar-brand" href="#">
+    <img src="color-wheel.png" alt="logo" style="width:40px;">
+  </a>
+  <ul class="navbar-nav">
+    <li class="nav-item">
+      <a class="nav-link" href="/">Start</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" href="/config">Configuration</a>
+    </li>
+  </ul>
+</nav>
+<br>
+
+<div class="container-fluid mt-3 ">
+  <div class="d-flex flex-column justify-content-center mt-3 ">
+	<div class="colorPicker p-2 mb-3 mx-auto shadow p-4 mb-4 bg-white"></div>
+	<div class="custom-control custom-switch mb-3 mx-auto">
+		<input type="checkbox" class="custom-control-input" id="enableSW" onclick="onEnable();">
+		<label class="custom-control-label" for="enableSW">Enabled</label>
+	</div>
+	<button class="btn btn-primary btn-sm mb-3 mx-auto" data-toggle="collapse" data-target="#statust">Status ...</button>
+	<div id="statust" class="collapse">
+		<table id="statustable" class="table">
+			<thead>
+				<tr>
+					<th>Name</th>
+					<th>Value</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr>
+				<td>Dummy</td>
+				<td>Dummy</td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
+  </div>
+</div>
+
+<script type="text/javascript">
+var colorPickerDragging = false;
+// Create a new color picker instance
+// https://iro.js.org/guide.html#getting-started
+var colorPicker = new iro.ColorPicker(".colorPicker", {
+  // color picker options
+  // Option guide: https://iro.js.org/guide.html#color-picker-options
+  width: 280,
+  color: "rgb(255, 0, 0)",
+  borderWidth: 1,
+  borderColor: "#fff",
+});
+
+// https://iro.js.org/guide.html#color-picker-events
+colorPicker.on(["input:end"], function(color){
+  var json = {brightness:color.hsv.v,color:{r:color.rgb.r,g:color.rgb.g,b:color.rgb.b}};
+
+  $.ajax( "/jsonctrl", { data: JSON.stringify(json), dataType: "json", method: "POST", contentType: "application/json", cache: false, timeout: 2000})
+	.fail(function( data ) {
+	  console.log( "Error: " );
+	  console.log( data );
+	})
+	.always(function() {
+	  colorPickerDragging = false;
+	});
+});
+
+colorPicker.on(["input:start"], function(){colorPickerDragging = true;});
+
+setInterval(function() {updateStatus();}, 3000);
+
+function onEnable(){
+  colorPickerDragging = true;
+  
+  var json = {enabled:$("#enableSW").prop( "checked")};
+
+  $.ajax( "/jsonctrl", { data: JSON.stringify(json), dataType: "json", method: "POST", contentType: "application/json", cache: false, timeout: 2000})
+	.fail(function( data ) {
+	  console.log( "Error: " );
+	  console.log( data );
+	})
+	.always(function() {
+		colorPickerDragging = false;
+	});
+}
+
+function updateStatus(){
+	$.getJSON("jsonstatus", function(json){
+		if (colorPickerDragging == false){
+			colorPicker.color.setChannel('rgb','r',json.color.r);
+			colorPicker.color.setChannel('rgb','g',json.color.g);
+			colorPicker.color.setChannel('rgb','b',json.color.b);
+			colorPicker.color.setChannel('hsv','v',json.brightness);
+			$("#enableSW").prop( "checked", json.enabled );
+		}
+		
+		$('#statustable tbody').empty();
+
+		for (var prop in json){
+			if (prop == "color"){
+				console.log("Color R" + json.color.r + " G " + json.color.g + " B " + json.color.b);
+				$('#statustable tbody').append("<tr><td>Color</td><td>R: "+json.color.r+", G: "+json.color.g+" B: "+json.color.b+"</td></tr>");			
+			}
+			else{
+				console.log("Item "+prop+" Value: "+json[prop]);
+				$('#statustable tbody').append("<tr><td>"+prop+"</td><td>"+json[prop]+"</td></tr>");
+			}
+		}
+	})
+	.fail(function() {console.log( "JSON Query Error: " );  });
+}
+
+</script>
+
+</body>
+</html>
